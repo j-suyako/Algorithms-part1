@@ -1,31 +1,31 @@
 import edu.princeton.cs.algs4.MinPQ;
+import edu.princeton.cs.algs4.Queue;
 import edu.princeton.cs.algs4.Stack;
 import edu.princeton.cs.algs4.StdOut;
 import edu.princeton.cs.algs4.In;
 
 public class Solver {
-
     private class searchNode implements Comparable<searchNode> {
-        private Board curr;
+        private Board board;
         private searchNode predecessor;
         private int moves;
         private int priority;
 
         public searchNode(Board bd, searchNode pre, int m) {
-            curr = bd;
-            predecessor = pre;
-            moves = m;
-            priority = m + bd.manhattan();
+            this.board = bd;
+            this.predecessor = pre;
+            this.moves = m;
+            this.priority = m + bd.manhattan();
         }
 
         public boolean isGoal() {
-            return curr.isGoal();
+            return this.board.isGoal();
         }
 
         public Iterable<searchNode> neighbors() {
             Stack<searchNode> neighbors = new Stack<>();
-            for (Board neighbor: curr.neighbors()) {
-                if (moves == 0 || !predecessor.getCurr().equals(neighbor)) {
+            for (Board neighbor: board.neighbors()) {
+                if (moves == 0 || !predecessor.board.equals(neighbor)) {
                     searchNode e = new searchNode(neighbor, this, moves+1);
                     neighbors.push(e);
                 }
@@ -33,51 +33,55 @@ public class Solver {
             return neighbors;
         }
 
-        public int moves() {
-            return moves;
-        }
-
-        public Board getCurr() {
-            return curr;
-        }
-
-        public searchNode getPredecessor() {
-            return predecessor;
-        }
-
-        public int compareTo(searchNode this, searchNode that){
+        public int compareTo(searchNode that) {
             if (this.priority < that.priority) return -1;
-            if (this.priority == that.priority) return 0;
-            else return 1;
+            if (this.priority > that.priority) return 1;
+            else return Integer.compare(that.moves, this.moves);
         }
     }
-    private searchNode initialNode;
+    private Stack<Board> solution;
     private boolean solvable;
     private int moves;
 
     public Solver(Board initial) {
         /* find a solution to the initial board */
         if (initial == null) throw new IllegalArgumentException();
-        initialNode = new searchNode(initial, null, 0);
-        searchNode initialTwinNode = new searchNode(initial.twin(), null, 0);
+        searchNode currNode = new searchNode(initial, null, 0);
+        searchNode currTwinNode = new searchNode(initial.twin(), null, 0);
+        solution = new Stack<>();
         solvable = false;
         moves = -1;
         MinPQ<searchNode> PQ1 = new MinPQ<>();
         MinPQ<searchNode> PQ2 = new MinPQ<>();
-        PQ1.insert(initialNode);
-        PQ2.insert(initialTwinNode);
-        while (!initialNode.isGoal() && !initialTwinNode.isGoal()) {
-            for(searchNode each : initialNode.neighbors())
+        PQ1.insert(currNode);
+        PQ2.insert(currTwinNode);
+        int countInsert = 1;
+        int countDelMin = 0;
+        while (!currNode.isGoal() && !currTwinNode.isGoal()) {
+            for(searchNode each : currNode.neighbors()) {
                 PQ1.insert(each);
-            initialNode = PQ1.delMin();
+                ++countInsert;
+            }
+            currNode = PQ1.delMin();
+            ++countDelMin;
             //StdOut.println(initial.predecessor());
-            for(searchNode each : initialTwinNode.neighbors())
+            for(searchNode each : currTwinNode.neighbors()) {
                 PQ2.insert(each);
-            initialTwinNode = PQ2.delMin();
+                ++countInsert;
+            }
+            currTwinNode = PQ2.delMin();
+            ++countDelMin;
         }
-        if (initialNode.isGoal()) {
+        if (currNode.isGoal()) {
             solvable = true;
-            moves = initialNode.moves();
+            moves = currNode.moves;
+            while (currNode != null) {
+                solution.push(currNode.board);
+                currNode = currNode.predecessor;
+            }
+        }
+        else {
+            solution = null;
         }
     }
 
@@ -90,17 +94,21 @@ public class Solver {
     }
 
     public Iterable<Board> solution() {
-        if(!this.isSolvable()) return null;
-        Stack<Board> solution = new Stack<>();
-        while(initialNode != null) {
-            solution.push(initialNode.getCurr());
-            initialNode = initialNode.getPredecessor();
+        Queue<Board> copyOfSolution = new Queue<>();
+        if (solution != null) {
+            for (Board each : solution)
+                copyOfSolution.enqueue(each);
+            return copyOfSolution;
         }
-        return solution;
+        else return null;
     }
 
-    public static void main(String[] args) {
-        In in = new In(args[0]);
+    public static void main(String[] var0) {
+        main("C:\\Users\\JXT\\IdeaProjects\\8Puzzle\\test\\puzzle21.txt");
+    }
+
+    private static void main(String path) {
+        In in = new In(path);
         int n = in.readInt();
         int[][] blocks = new int[n][n];
         for (int i = 0; i < n; i++)
@@ -108,10 +116,11 @@ public class Solver {
                 blocks[i][j] = in.readInt();
         Board initial = new Board(blocks);
 
-    // solve the puzzle
+        // solve the puzzle
         Solver solver = new Solver(initial);
+//        solver.solution();
 
-    // print solution to standard output
+        // print solution to standard output
         if (!solver.isSolvable())
             StdOut.println("No solution possible");
         else {
